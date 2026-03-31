@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vasanth's Weather Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Firebase COMPAT scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDpNpqE7y8jz3U_t3hnhIB7wxGYOxkpLKs",
+            authDomain: "safeguard-weather.firebaseapp.com",
+            databaseURL: "https://safeguard-weather-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "safeguard-weather",
+            storageBucket: "safeguard-weather.firebasestorage.app",
+            messagingSenderId: "392754094263",
+            appId: "1:392754094263:web:16ef772bf1aae3fba36d32"
+        };
+        firebase.initializeApp(firebaseConfig);
+        window.__app_id = "safeguard-weather";
+    </script>
+</head>
+<body>
+
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+    <div class="bg-blob blob-3"></div>
+
+    <div class="main-wrapper">
+
+        <!-- HEADER -->
+        <header class="card header-card">
+            <div class="header-left">
+                <div class="logo-dot"></div>
+                <h1 class="site-title"><span class="name-highlight">Vasanth's</span> Weather Dashboard</h1>
+            </div>
+            <div class="header-right">
+                <div class="theme-picker-wrap">
+                    <span class="label-sm">Theme</span>
+                    <input type="color" id="themeColor" class="color-input" value="#16a34a">
+                </div>
+                <button onclick="manualRefresh()" class="btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    Refresh
+                </button>
+            </div>
+        </header>
+
+        <!-- STATUS + LOCATION -->
+        <div class="top-row">
+            <div class="card status-card">
+                <p class="label-sm" style="margin-bottom:1rem;">LIVE STATUS</p>
+                <div id="alertStatus" class="status-circle safe">
+                    <span class="status-text">SAFE</span>
+                    <div class="status-ring"></div>
+                </div>
+                <p class="last-updated">Updated: <span id="lastUpdated">--:--:--</span></p>
+            </div>
+
+            <div class="card location-card">
+                <div class="location-header">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-8-4-8-10a8 8 0 0 1 16 0c0 6-8 10-8 10z"/><circle cx="12" cy="10" r="3"/></svg>
+                    <span>Hyperlocal IoT Feed</span>
+                </div>
+                <p id="currentLocation" class="location-name">Default Location, India</p>
+                <div class="location-meta">
+                    <span class="badge">ESP32 Live</span>
+                    <button onclick="promptForLocation()" class="btn-secondary">Change / GPS</button>
+                </div>
+                <div class="userid-row">
+                    <span class="label-sm">User ID:</span>
+                    <span class="mono" id="userIdDisplay">Loading...</span>
+                </div>
+                <div class="conn-status">
+                    <span class="conn-dot" id="connDot"></span>
+                    <span id="connText">Connecting to Firebase...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SENSOR METRICS -->
+        <div class="metrics-grid">
+            <div class="card metric-card" style="--accent:#3b82f6">
+                <div class="metric-icon">🌡️</div>
+                <p class="metric-label">Temperature</p>
+                <div class="metric-value" id="currentTemp">--°C</div>
+                <div class="metric-bar"><div class="metric-bar-fill" id="tempBar" style="width:0%;background:#3b82f6"></div></div>
+            </div>
+            <div class="card metric-card" style="--accent:#06b6d4">
+                <div class="metric-icon">💧</div>
+                <p class="metric-label">Humidity</p>
+                <div class="metric-value" id="currentHumidity">--%</div>
+                <div class="metric-bar"><div class="metric-bar-fill" id="humBar" style="width:0%;background:#06b6d4"></div></div>
+            </div>
+            <div class="card metric-card" style="--accent:#10b981">
+                <div class="metric-icon">🌧️</div>
+                <p class="metric-label">Rainfall</p>
+                <div class="metric-value" id="currentRain">--%</div>
+                <div class="metric-bar"><div class="metric-bar-fill" id="rainBar" style="width:0%;background:#10b981"></div></div>
+            </div>
+            <div class="card metric-card" style="--accent:#f59e0b">
+                <div class="metric-icon" id="darkIcon">🌙</div>
+                <p class="metric-label">Light</p>
+                <div class="metric-value" id="darkStatus">--</div>
+            </div>
+        </div>
+
+        <!-- ALERTS + SAFETY -->
+        <div class="bottom-grid">
+            <div class="card info-card">
+                <div class="card-header-row">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <h2>Real-Time Alerts</h2>
+                </div>
+                <div id="alertBox"><div class="placeholder-text">Connecting to live sensor...</div></div>
+            </div>
+
+            <div class="card info-card">
+                <div class="card-header-row">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <h2>Safety Guidance</h2>
+                </div>
+                <ul id="safetySuggestions"><li class="placeholder-text">Awaiting sensor data...</li></ul>
+            </div>
+        </div>
+
+        <!-- FARMER CROP GUIDANCE -->
+        <div class="card crop-card">
+            <div class="card-header-row">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 10 10"/><path d="M12 2v20"/><path d="M2 12h20"/><path d="M12 2C6.477 2 2 6.477 2 12"/></svg>
+                <h2>🌾 Farmer's Crop &amp; Field Guide</h2>
+            </div>
+            <div id="cropGuide" class="crop-grid">
+                <div class="placeholder-text">Waiting for weather data to generate crop recommendations...</div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>Safeguard Weather Dashboard · ESP32 IoT Live Feed · Built by Vasanth</p>
+        </footer>
+    </div>
+
+    <!-- LOCATION MODAL -->
+    <div id="locationModal" class="modal-overlay hidden">
+        <div class="modal-box card">
+            <div class="modal-header">
+                <h3>Set Your Location</h3>
+                <button id="closeModal" class="modal-close">✕</button>
+            </div>
+            <p class="modal-desc">Enter your city name or use GPS for accurate local data.</p>
+            <input type="text" id="manualLocationInput" placeholder="e.g., Chennai, Tamil Nadu" class="text-input">
+            <button id="saveLocation" class="btn-primary full-width">Set Location Manually</button>
+            <button id="useGeoLocation" class="btn-outline full-width">📍 Use GPS Location</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
